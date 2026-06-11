@@ -1,0 +1,14 @@
+---
+applications:
+  - name: bdc-ai-assistant
+    memory: 512M
+    disk_quota: 1G
+    buildpack: python_buildpack
+    command: null
+    health-check-type: port
+    env:
+      AICORE_AUTH_URL: "https://joule-j4d-l7flm2l8.authentication.eu20.hana.ondemand.com"
+      AICORE_CLIENT_ID: "sb-0995f450-3786-473d-b855-cc47a6f0af9d!b132133|xsuaa_std!b57362"
+      AICORE_CLIENT_SECRET: "564b3096-a69b-4175-9a83-6a33050ba907$q5YAcOeAjPFutWwVfvbu-Xd0E6K25TGTkTDiK_ias0I="
+      AICORE_BASE_URL: "https://api.ai.prod-eu20.westeurope.azure.ml.hana.ondemand.com/v2"
+      AICORE_RESOURCE_GROUP: "default"

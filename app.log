@@ -1,0 +1,43 @@
+
+Collecting usage statistics. To deactivate, set browser.gatherUsageStats to false.
+
+2026-06-11 06:20:25.406 No ASGI app assignments found in /home/user/bdc-genai-poc/chat_app.py
+2026-06-11 06:20:25.582 Filtered 193 packages down to 1 candidates for component scanning
+2026-06-11 06:20:25.582 Scanning 1 candidate packages for component manifests using 1 worker threads
+2026-06-11 06:20:25.605 Found 0 component manifests total
+2026-06-11 06:20:25.606 No asset roots to watch
+2026-06-11 06:20:25.606 File watching not started
+2026-06-11 06:20:25.606 Starting new event loop for server
+2026-06-11 06:20:25.606 Starting server...
+2026-06-11 06:20:25.635 Port 8501 not available, trying to use the next one.
+2026-06-11 06:20:25.636 Port 8502 not available, trying to use the next one.
+2026-06-11 06:20:25.636 Starting uvicorn server on 0.0.0.0:8503
+2026-06-11 06:20:25.655 Runtime state: RuntimeState.INITIAL -> RuntimeState.NO_SESSIONS_CONNECTED
+2026-06-11 06:20:25.656 Uvicorn server started on 0.0.0.0:8503
+
+  You can now view your Streamlit app in your browser.
+
+  Local URL: http://localhost:8503
+  Network URL: http://100.96.83.110:8503
+  External URL: http://35.171.105.85:8503
+
+2026-06-11 06:20:25.715 Setting up signal handler
+2026-06-11 06:20:27.941 Rejecting WebSocket connection from disallowed origin: https://port8503-workspaces-ws-ukf7y.us10.applicationstudio.cloud.sap
+2026-06-11 06:20:29.000 Rejecting WebSocket connection from disallowed origin: https://port8503-workspaces-ws-ukf7y.us10.applicationstudio.cloud.sap
+2026-06-11 06:20:30.239 Rejecting WebSocket connection from disallowed origin: https://port8503-workspaces-ws-ukf7y.us10.applicationstudio.cloud.sap
+2026-06-11 06:20:31.465 Rejecting WebSocket connection from disallowed origin: https://port8503-workspaces-ws-ukf7y.us10.applicationstudio.cloud.sap
+2026-06-11 06:20:32.497 Rejecting WebSocket connection from disallowed origin: https://port8503-workspaces-ws-ukf7y.us10.applicationstudio.cloud.sap
+2026-06-11 06:20:33.538 Rejecting WebSocket connection from disallowed origin: https://port8503-workspaces-ws-ukf7y.us10.applicationstudio.cloud.sap
+2026-06-11 06:20:34.535 Rejecting WebSocket connection from disallowed origin: https://port8503-workspaces-ws-ukf7y.us10.applicationstudio.cloud.sap
+2026-06-11 06:20:35.661 Rejecting WebSocket connection from disallowed origin: https://port8503-workspaces-ws-ukf7y.us10.applicationstudio.cloud.sap
+2026-06-11 06:20:36.647 Rejecting WebSocket connection from disallowed origin: https://port8503-workspaces-ws-ukf7y.us10.applicationstudio.cloud.sap
+2026-06-11 06:20:37.625 Rejecting WebSocket connection from disallowed origin: https://port8503-workspaces-ws-ukf7y.us10.applicationstudio.cloud.sap
+2026-06-11 06:20:38.839 Rejecting WebSocket connection from disallowed origin: https://port8503-workspaces-ws-ukf7y.us10.applicationstudio.cloud.sap
+2026-06-11 06:20:40.100 Rejecting WebSocket connection from disallowed origin: https://port8503-workspaces-ws-ukf7y.us10.applicationstudio.cloud.sap
+2026-06-11 06:20:41.404 Rejecting WebSocket connection from disallowed origin: https://port8503-workspaces-ws-ukf7y.us10.applicationstudio.cloud.sap
+2026-06-11 06:20:42.950 Rejecting WebSocket connection from disallowed origin: https://port8503-workspaces-ws-ukf7y.us10.applicationstudio.cloud.sap
+2026-06-11 06:20:45.183 Rejecting WebSocket connection from disallowed origin: https://port8503-workspaces-ws-ukf7y.us10.applicationstudio.cloud.sap
+2026-06-11 06:20:47.541 Rejecting WebSocket connection from disallowed origin: https://port8503-workspaces-ws-ukf7y.us10.applicationstudio.cloud.sap
+2026-06-11 06:20:52.979 Rejecting WebSocket connection from disallowed origin: https://port8503-workspaces-ws-ukf7y.us10.applicationstudio.cloud.sap
+2026-06-11 06:20:55.797 Rejecting WebSocket connection from disallowed origin: https://port8503-workspaces-ws-ukf7y.us10.applicationstudio.cloud.sap
+2026-06-11 06:21:01.687 Rejecting WebSocket connection from disallowed origin: https://port8503-workspaces-ws-ukf7y.us10.applicationstudio.cloud.sap

@@ -1,0 +1,345 @@
+import streamlit as st
+import requests
+import json
+
+st.set_page_config(
+    page_title="BDC AI Assistant",
+    page_icon="💬",
+    layout="wide",
+
+
+    initial_sidebar_state="collapsed"
+)
+
+# ── Session state defaults ────────────────────────────────────────────────────
+defaults = {
+    "dark_mode":    True,
+    "messages":     [],
+    "show_config":  True,
+    "tenant":       "",
+    "token_url":    "",
+    "cid":          "",
+    "csec":         "",
+    "space":        "",
+    "view":         "",
+    "schema":       "",
+    "model":        "gpt-4o-mini",
+    "last_input":   "",   # tracks last processed question to prevent repeats
+    "input_counter": 0,        # increments to reset input box
+}
+for k, v in defaults.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
+
+dark = st.session_state.dark_mode
+
+if dark:
+    bg   = "#0f1117"; card  = "#1a1d2e"; border = "#2a2d3e"
+    text = "#e8eaf0"; muted = "#6b7280"; inp    = "#1a1d2e"
+    u_bg = "#1e2340"; u_bd  = "#3b5bdb"; a_bg   = "#0d1f14"
+    a_bd = "#22c55e"; e_bg  = "#1f0d0d"; e_bd   = "#ef4444"; btn = "#3b5bdb"
+else:
+    bg   = "#f8f9fa"; card  = "#ffffff"; border = "#e2e8f0"
+    text = "#1a202c"; muted = "#718096"; inp    = "#ffffff"
+    u_bg = "#eef2ff"; u_bd  = "#3b5bdb"; a_bg   = "#f0fdf4"
+    a_bd = "#16a34a"; e_bg  = "#fff5f5"; e_bd   = "#ef4444"; btn = "#3b5bdb"
+
+st.markdown(f"""
+<style>
+  #MainMenu,footer,header,[data-testid="stSidebar"],
+  [data-testid="collapsedControl"],[data-testid="stSidebarCollapseButton"]{{display:none!important}}
+  .block-container{{padding:1.2rem 2rem 1rem;max-width:100%}}
+  .stApp{{background:{bg}}}
+  html,body,[class*="css"],p,div,span{{color:{text}}}
+  .stTextInput input,.stTextArea textarea{{
+    background:{inp}!important;border:1px solid {border}!important;
+    color:{text}!important;border-radius:6px!important;font-size:13px!important}}
+  .stTextInput input:focus,.stTextArea textarea:focus{{
+    border-color:{btn}!important;box-shadow:0 0 0 2px rgba(59,91,219,0.15)!important}}
+  .stTextInput label,.stTextArea label,.stSelectbox label{{
+    font-size:11px!important;font-weight:600!important;
+    text-transform:uppercase!important;letter-spacing:0.06em!important;color:{muted}!important}}
+  .stButton button{{
+    background:{btn}!important;color:white!important;border:none!important;
+    border-radius:6px!important;font-size:13px!important;font-weight:500!important}}
+  .stButton button:hover{{opacity:0.85!important}}
+  .stSelectbox div[data-baseweb="select"]>div{{
+    background:{inp}!important;border-color:{border}!important;color:{text}!important}}
+  hr{{border-color:{border}!important;margin:10px 0!important}}
+  .msg-user{{background:{u_bg};border-left:3px solid {u_bd};border-radius:0 6px 6px 0;
+    padding:10px 14px;margin:5px 80px 5px 0;font-size:14px;line-height:1.6;color:{text}}}
+  .msg-ai{{background:{a_bg};border-left:3px solid {a_bd};border-radius:0 6px 6px 0;
+    padding:10px 14px;margin:5px 0 5px 80px;font-size:14px;line-height:1.6;color:{text}}}
+  .msg-error{{background:{e_bg};border-left:3px solid {e_bd};border-radius:0 6px 6px 0;
+    padding:10px 14px;margin:5px 0;font-size:13px;color:{e_bd}}}
+  .msg-label{{font-size:10px;text-transform:uppercase;letter-spacing:0.08em;
+    color:{muted};margin-bottom:3px;font-weight:600}}
+  .query-tag{{display:inline-block;background:{card};border:1px solid {border};
+    border-radius:4px;padding:2px 8px;font-size:11px;font-family:monospace;
+    color:{muted};margin-bottom:6px;word-break:break-all}}
+  .ok{{color:#22c55e;font-size:12px;font-weight:500}}
+  .off{{color:{muted};font-size:12px}}
+  .err{{color:#ef4444;font-size:12px}}
+  .slabel{{font-size:11px;font-weight:600;text-transform:uppercase;
+    letter-spacing:0.07em;color:{muted};margin-bottom:8px}}
+</style>
+""", unsafe_allow_html=True)
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+def get_token(token_url, cid, csec):
+    r = requests.post(token_url, data={
+        "grant_type": "client_credentials",
+        "client_id": cid, "client_secret": csec
+    }, timeout=15)
+    r.raise_for_status()
+    return r.json()["access_token"]
+
+def fetch_odata(tenant, space, view, token, params=""):
+    base = f"{tenant}/api/v1/dwc/consumption/relational/{space}/{view}/{view}"
+    url  = base + "?$format=json"
+    p = params.strip().lstrip("&").lstrip("?")
+    if p:
+        url += "&" + p
+    r = requests.get(url, headers={
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json"
+    }, timeout=20)
+    r.raise_for_status()
+    return r.json().get("value", [])
+
+def nl_to_odata(question, schema, model):
+    from gen_ai_hub.proxy.native.openai import chat
+    r = chat.completions.create(
+        model_name=model, temperature=0,
+        messages=[
+            {"role": "system", "content": f"""You are a SAP Datasphere OData query assistant.
+Convert the user question into OData V4 query parameters.
+Respond with ONLY filter/orderby params starting with & (e.g. &$filter=CompanyCode eq '1001').
+Do NOT include $format or $top. Return empty string if no filter needed.
+Schema:
+{schema if schema.strip() else 'No schema provided'}"""},
+            {"role": "user", "content": question}
+        ]
+    )
+    return r.choices[0].message.content.strip()
+
+def summarise(question, results, model):
+    from gen_ai_hub.proxy.native.openai import chat
+    if not results:
+        return "No data found matching your query."
+    r = chat.completions.create(
+        model_name=model, temperature=0.3,
+        messages=[{"role": "user", "content": f"""User asked: "{question}"
+Data ({len(results)} rows):
+{json.dumps(results[:15], indent=2)[:2500]}
+Write a concise 2-4 sentence business answer with key numbers and trends. No technical jargon."""}]
+    )
+    return r.choices[0].message.content.strip()
+
+def check_genai():
+    try:
+        from gen_ai_hub.proxy.core.proxy_clients import get_proxy_client
+        deps = get_proxy_client().deployments
+        return True, f"{len(deps)} model(s) ready"
+    except Exception as e:
+        return False, str(e)[:60]
+
+def ds_configured():
+    return all([
+        st.session_state.tenant, st.session_state.token_url,
+        st.session_state.cid, st.session_state.csec,
+        st.session_state.space, st.session_state.view
+    ])
+
+def process_question(q):
+    """Process a question and append result to messages."""
+    st.session_state.messages.append({"role": "user", "content": q})
+    if not ds_configured():
+        st.session_state.messages.append({
+            "role": "error",
+            "content": "Datasphere not configured — click ⚙ Config and fill in all fields."
+        })
+        return
+    try:
+        params  = nl_to_odata(q, st.session_state.schema, st.session_state.model)
+        token   = get_token(st.session_state.token_url, st.session_state.cid, st.session_state.csec)
+        results = fetch_odata(st.session_state.tenant, st.session_state.space,
+                              st.session_state.view, token, params)
+        answer  = summarise(q, results, st.session_state.model)
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": f"{params}|||Q|||{answer}"
+        })
+    except Exception as e:
+        st.session_state.messages.append({"role": "error", "content": str(e)})
+
+
+# ── Top bar ───────────────────────────────────────────────────────────────────
+ai_ok, ai_msg = check_genai()
+
+c1, c2, c3 = st.columns([3, 4, 2])
+with c1:
+    st.markdown(f"""<div style='padding-top:4px'>
+      <span style='font-size:17px;font-weight:600;color:{text}'>BDC AI Assistant</span>
+      <span style='font-size:11px;color:{muted};margin-left:8px'>SAP Gen AI Hub + Datasphere</span>
+    </div>""", unsafe_allow_html=True)
+with c2:
+    st.markdown(f"""<div style='padding-top:8px'>
+      <span class='{"ok" if ai_ok else "err"}'>
+        {"● Gen AI Hub — " + ai_msg if ai_ok else "✗ Gen AI Hub error — " + ai_msg}
+      </span>
+    </div>""", unsafe_allow_html=True)
+with c3:
+    b1, b2 = st.columns(2)
+    with b1:
+        if st.button("⚙ Config", use_container_width=True):
+            st.session_state.show_config = not st.session_state.show_config
+            st.rerun()
+    with b2:
+        if st.button("☀️" if dark else "🌙", use_container_width=True):
+            st.session_state.dark_mode = not dark
+            st.rerun()
+
+st.markdown("<hr>", unsafe_allow_html=True)
+
+
+# ── Config panel ──────────────────────────────────────────────────────────────
+if st.session_state.show_config:
+    st.markdown(f"<div class='slabel'>Datasphere Configuration</div>", unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.session_state.tenant    = st.text_input("Tenant URL",
+            value=st.session_state.tenant,
+            placeholder="https://xxx.eu20.hcs.cloud.sap")
+        st.session_state.token_url = st.text_input("Token URL",
+            value=st.session_state.token_url,
+            placeholder="https://xxx.authentication.eu20.hana.ondemand.com/oauth/token")
+    with col2:
+        st.session_state.cid  = st.text_input("Client ID",
+            value=st.session_state.cid,
+            placeholder="sb-xxxxxxxx")
+        st.session_state.csec = st.text_input("Client Secret",
+            value=st.session_state.csec,
+            placeholder="••••••••", type="password")
+    with col3:
+        st.session_state.space = st.text_input("Space Name",
+            value=st.session_state.space,
+            placeholder="EXP_DISK_STORE")
+        st.session_state.view  = st.text_input("View Name",
+            value=st.session_state.view,
+            placeholder="GL_Cashflow_monthly")
+
+    m1, m2, m3, m4 = st.columns([2, 2, 2, 2])
+    with m1:
+        model_opts = ["gpt-4o-mini", "gpt-4o", "anthropic--claude-4.5-haiku", "gpt-4.1-mini"]
+        cur_idx    = model_opts.index(st.session_state.model) if st.session_state.model in model_opts else 0
+        st.session_state.model = st.selectbox("Model", model_opts, index=cur_idx)
+    with m2:
+        st.markdown("<div style='height:22px'></div>", unsafe_allow_html=True)
+        if st.button("Test Connection", use_container_width=True):
+            if ds_configured():
+                with st.spinner("Testing..."):
+                    try:
+                        tok  = get_token(st.session_state.token_url,
+                                         st.session_state.cid, st.session_state.csec)
+                        rows = fetch_odata(st.session_state.tenant, st.session_state.space,
+                                           st.session_state.view, tok)
+                        st.success(f"✓ Connected — {len(rows)} rows fetched!")
+                    except Exception as e:
+                        st.error(f"✗ {str(e)[:120]}")
+            else:
+                st.warning("Fill in all fields first")
+    with m3:
+        st.markdown("<div style='height:22px'></div>", unsafe_allow_html=True)
+        if st.button("Save & Close", use_container_width=True):
+            st.session_state.show_config = False
+            st.rerun()
+    with m4:
+        st.markdown("<div style='height:22px'></div>", unsafe_allow_html=True)
+        if st.button("Clear Chat", use_container_width=True):
+            st.session_state.messages  = []
+            st.session_state.last_input = ""
+            st.rerun()
+
+    with st.expander("Schema context (optional)"):
+        st.session_state.schema = st.text_area("Columns",
+            value=st.session_state.schema, height=100,
+            label_visibility="collapsed",
+            placeholder="Column: CompanyCode, Type: String\nColumn: Month, Type: Date\nColumn: Inflow_Forecast, Type: Decimal")
+
+    st.markdown("<hr>", unsafe_allow_html=True)
+
+else:
+    ok = ds_configured()
+    st.markdown(f"""<div style='font-size:12px;color:{muted};margin-bottom:12px'>
+      Datasphere: <span class='{"ok" if ok else "off"}'>
+        {"● " + st.session_state.tenant if ok else "○ not configured — click ⚙ Config"}
+      </span>
+      {"&nbsp;&nbsp;Space: <b>" + st.session_state.space + "</b>&nbsp;&nbsp;View: <b>" + st.session_state.view + "</b>" if ok else ""}
+    </div>""", unsafe_allow_html=True)
+
+
+# ── Empty state ───────────────────────────────────────────────────────────────
+if not st.session_state.messages:
+    st.markdown(f"""
+    <div style='text-align:center;padding:40px 0;color:{muted}'>
+      <div style='font-size:32px;margin-bottom:12px'>💬</div>
+      <div style='font-size:14px'>Type a question below to query your BDC data</div>
+      <div style='font-size:12px;margin-top:6px'>
+        e.g. "Show cashflow for company 1001" · "What is the inflow forecast for 2025?"
+      </div>
+    </div>""", unsafe_allow_html=True)
+
+
+# ── Chat messages ─────────────────────────────────────────────────────────────
+for msg in st.session_state.messages:
+    if msg["role"] == "user":
+        st.markdown(f"""<div class='msg-user'>
+          <div class='msg-label'>You</div>{msg['content']}</div>""",
+          unsafe_allow_html=True)
+    elif msg["role"] == "assistant":
+        body = msg["content"]
+        qtag = ""
+        if "|||Q|||" in body:
+            q_part, body = body.split("|||Q|||", 1)
+            qtag = f"<div class='query-tag'>OData: {q_part.strip()}</div>"
+        st.markdown(f"""<div class='msg-ai'>
+          <div class='msg-label'>AI Assistant</div>
+          {qtag}{body.strip()}</div>""", unsafe_allow_html=True)
+    elif msg["role"] == "error":
+        st.markdown(f"<div class='msg-error'>⚠ {msg['content']}</div>",
+          unsafe_allow_html=True)
+
+
+# ── Input ─────────────────────────────────────────────────────────────────────
+st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+qi, qb = st.columns([6, 1])
+with qi:
+    input_key  = f"user_input_{st.session_state.input_counter}"
+user_input = st.text_input("q", label_visibility="collapsed",
+        placeholder="Ask a question about your BDC data...",
+        key=input_key)
+with qb:
+    send = st.button("Ask", use_container_width=True)
+
+# ── Only process if new question — prevents repeat on rerun ──────────────────
+user_input = st.session_state.get(input_key, "")
+if send and user_input.strip():
+    q = user_input.strip()
+    if q != st.session_state.last_input:
+        st.session_state.last_input = q
+        with st.spinner("Querying BDC..."):
+            process_question(q)
+    st.session_state.input_counter += 1
+    st.rerun()
+
+
+# ── Footer ────────────────────────────────────────────────────────────────────
+st.markdown(f"""
+<div style='margin-top:20px;padding-top:10px;border-top:1px solid {border};
+     display:flex;justify-content:space-between;font-size:11px;color:{muted}'>
+  <span>SAP Gen AI Hub · SAP Datasphere · POC</span>
+  <span>{st.session_state.model} · OData V4</span>
+</div>""", unsafe_allow_html=True)
