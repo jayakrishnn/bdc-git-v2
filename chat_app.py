@@ -406,7 +406,7 @@ if not st.session_state.messages:
       <div style='font-size:11px;margin-top:12px;line-height:2.6;color:{MUTED};'>
         "How to improve net cashflow?" · "Which company is performing best?"<br/>
         "Compare company 1005 vs 1021" · "Show chart of net cashflow"<br/>
-        "Who is the prime minister of India?" · "Explain P80 forecast range"
+        "Explain P80 forecast range"
       </div></div>""", unsafe_allow_html=True)
 
 for idx,(role,content) in enumerate(st.session_state.messages):
